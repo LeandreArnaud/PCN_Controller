@@ -1,3 +1,6 @@
+#define DCSBIOS_IRQ_SERIAL
+#include "DcsBios.h"
+
 /*******************************************************************************************/
 // pins definition
 /*******************************************************************************************/
@@ -40,6 +43,8 @@ int sw8 = 3;
 int sw9 = 2;
 
 void setup() {
+  DcsBios::setup();
+  
   // keyboard
   pinMode(col1, OUTPUT);
   pinMode(col2, OUTPUT);
@@ -75,8 +80,8 @@ void setup() {
   pinMode(sw8, INPUT);
   pinMode(sw9, INPUT);
   
-  Serial.begin(9600);
-  Serial.setTimeout(5);
+  // Serial.begin(9600);
+  // Serial.setTimeout(5);
 }
 
 /*******************************************************************************************/
@@ -103,13 +108,29 @@ int readKeyboard(int col) {
 }
 
 int lastKey = 0;
+char buf[12];
 void printIfNotZero(int a){
   if (a != lastKey and (a < 13 or a == 13+(lastKey+2)%3)) {
     lastKey = a;
     if (a != 0 and a < 13) {
-      Serial.println("K"+String(a));
+      // Serial.println("K"+String(a));
+      if (a < 10) {
+        snprintf(buf, 12, "INS_BTN_%d", a);
+        triggerButton(buf);
+      } else if (a==10) {
+        triggerButton("INS_CLR_BTN");
+      } else if (a==11) {
+        triggerButton("INS_BTN_0");
+      } else if (a==12) {
+        triggerButton("INS_ENTER_BTN");
+      }
     }
   }
+}
+
+void triggerButton(String buttonName) {
+  sendDcsBiosMessage(buttonName.c_str(), "1");
+  sendDcsBiosMessage(buttonName.c_str(), "0");
 }
 
 int lastButton = -1;
@@ -117,32 +138,34 @@ int readButtons() {
   if (digitalRead(but0)){
     if (lastButton!=0){
       lastButton = 0;
-      Serial.println("B0");
+      // Serial.println("B0");
+      triggerButton("INS_PREP_SW");
     }
   } else if (digitalRead(but1)){
     if (lastButton!=1){
       lastButton = 1;
-      Serial.println("B1");
+      // Serial.println("B1");
+      triggerButton("INS_DEST_SW");
     }
   } else if (digitalRead(but2)){
     if (lastButton!=2){
       lastButton = 2;
-      Serial.println("B2");
+      // Serial.println("B2");
     }
   } else if (digitalRead(but3)){
     if (lastButton!=3){
       lastButton = 3;
-      Serial.println("B3");
+      // Serial.println("B3");
     }
   } else if (digitalRead(but4)){
     if (lastButton!=4){
       lastButton = 4;
-      Serial.println("B4");
+      // Serial.println("B4");
     }
   } else if (digitalRead(but5)){
     if (lastButton!=5){
       lastButton = 5;
-      Serial.println("B5");
+      // Serial.println("B5");
     }
   } else {
     lastButton = -1;
@@ -154,7 +177,7 @@ int potTreshold = 200;
 int readPot() {
   int potValue = analogRead(pot);
   if (abs(potValue-lastPot) > potTreshold) {
-    Serial.println("L"+String(int(potValue/10.24)));
+    // Serial.println("L"+String(int(potValue/10.24)));
     lastPot = potValue;
   }
 }
@@ -164,52 +187,62 @@ int readSwitch() {
   if (digitalRead(sw0)){
     if (lastSwitch!=0){
       lastSwitch = 0;
-      Serial.println("S0");
+      // Serial.println("S0");
+      sendDcsBiosMessage("INS_PARAM_SEL", "9");
     }
   } else if (digitalRead(sw1)){
     if (lastSwitch!=1){
       lastSwitch = 1;
-      Serial.println("S1");
+      // Serial.println("S1");
+      sendDcsBiosMessage("INS_PARAM_SEL", "8");
     }
   } else if (digitalRead(sw2)){
     if (lastSwitch!=2){
       lastSwitch = 2;
-      Serial.println("S2");
+      // Serial.println("S2");
+      sendDcsBiosMessage("INS_PARAM_SEL", "7");
     }
   } else if (digitalRead(sw3)){
     if (lastSwitch!=3){
       lastSwitch = 3;
-      Serial.println("S3");
+      // Serial.println("S3");
+      sendDcsBiosMessage("INS_PARAM_SEL", "6");
     }
   } else if (digitalRead(sw4)){
     if (lastSwitch!=4){
       lastSwitch = 4;
-      Serial.println("S4");
+      // Serial.println("S4");
+      sendDcsBiosMessage("INS_PARAM_SEL", "5");
     }
   } else if (digitalRead(sw5)){
     if (lastSwitch!=5){
       lastSwitch = 5;
-      Serial.println("S5");
+      // Serial.println("S5");
+      sendDcsBiosMessage("INS_PARAM_SEL", "4");
     }
   } else if (digitalRead(sw6)){
     if (lastSwitch!=6){
       lastSwitch = 6;
-      Serial.println("S6");
+      // Serial.println("S6");
+      sendDcsBiosMessage("INS_PARAM_SEL", "3");
     }
   } else if (digitalRead(sw7)){
     if (lastSwitch!=7){
       lastSwitch = 7;
-      Serial.println("S7");
+      // Serial.println("S7");
+      sendDcsBiosMessage("INS_PARAM_SEL", "2");
     }
   } else if (digitalRead(sw8)){
     if (lastSwitch!=8){
       lastSwitch = 8;
-      Serial.println("S8");
+      // Serial.println("S8");
+      sendDcsBiosMessage("INS_PARAM_SEL", "1");
     }
   } else if (digitalRead(sw9)){
     if (lastSwitch!=9){
       lastSwitch = 9;
-      Serial.println("S9");
+      // Serial.println("S9");
+      sendDcsBiosMessage("INS_PARAM_SEL", "0");
     }
   } else {
     lastSwitch = -1;
@@ -217,12 +250,24 @@ int readSwitch() {
 }
 
 
+// Trigger LEDs
+void onInsDestSwLightChange(unsigned int newValue) {
+  digitalWrite(led0, newValue);
+}
+DcsBios::IntegerBuffer insDestSwLightBuffer(0x72d4, 0x0200, 9, onInsDestSwLightChange);
+
+void onInsPrepSwLightChange(unsigned int newValue) {
+  digitalWrite(led1, newValue);
+}
+DcsBios::IntegerBuffer insPrepSwLightBuffer(0x72d4, 0x0100, 8, onInsPrepSwLightChange);
+
+
+
 /*******************************************************************************************/
 // main loop
 /*******************************************************************************************/
 void loop() {
-  digitalWrite(led0, HIGH);
-  digitalWrite(led1, HIGH);
+  DcsBios::loop();
   
   writeToKeyboard(HIGH, LOW, LOW);
   printIfNotZero(readKeyboard(0));
@@ -245,5 +290,6 @@ void loop() {
   delay(10);
   digitalWrite(swSelector, LOW);
 
+  // not available in dcs bios
   // readPot();
 }
